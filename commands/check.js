@@ -1,5 +1,6 @@
 const inquirer = require('inquirer');
 const colors = require('colors');
+const Table = require('cli-table3');
 const KeyManager = require('../lib/KeyManager');
 const CryptoAPI = require('../lib/CryptoAPI');
 const { isRequired } = require('../utils/validation');
@@ -19,6 +20,21 @@ const check = {
         } catch (error) {
             handleAPIError(error);
         }
+    },
+    async topten(cmd) {
+        try {
+            keyManager = new KeyManager();
+            const key = keyManager.getKey();
+
+            const api = new CryptoAPI(key);
+            const interval = '1d,7d,30d,365d'
+            const res = await api.getTopTen(cmd.cur);
+            const output = formatData(res, interval, cmd.cur);
+            
+            console.log(output.toString());
+        } catch (error) {
+            handleAPIError(error);
+        }
     }
 }
 
@@ -26,7 +42,7 @@ function checkInterval(intervals) {
     const interval = intervals.split(',');
     var valid = ''
     interval.forEach(int => {
-        if (['1d','7d','30d','365d'].includes(int)) {
+        if (['1d','7d','30d','365d','ytd'].includes(int)) {
             valid += int + ','
         }
     });
@@ -40,7 +56,7 @@ function formatData(data, intervals, currency) {
     const formatter = new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: currency
-    })
+    });
 
     data.forEach(coin => {
         output += `Coin: ${coin.symbol.yellow} (${coin.name}) | Price: ${formatter.format(coin.price).green} | High: ${formatter.format(coin.high).blue} `;
@@ -62,12 +78,14 @@ function formatData(data, intervals, currency) {
 }
 
 function handleAPIError(error) {
-    if (error.respondse.status === 401) {
-        throw new Error('Invalid API Key -- Go to https://nomics.com');
-    } else if (error.respondse.status === 404) {
-        throw new Error('API is not responding -- Go to https://nomics.com');
+    if (error.respondse) {
+        if (error.respondse.status === 401) {
+            throw new Error('Invalid API Key -- Go to https://nomics.com');
+        } else if (error.respondse.status === 404) {
+            throw new Error('API is not responding -- Go to https://nomics.com');
+        } 
     } else {
-        throw new Error('Oops something went wrong');
+        throw new Error(error);
     }
 }
 
